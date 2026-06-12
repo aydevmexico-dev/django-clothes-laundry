@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if form.instance.pk %}Editar producto{% else %}Nuevo producto{% endif %} · {{ tenant.name }} · Anda Lava POS{% endblock %}
+{% block page_eyebrow %}Módulo · Catálogo{% endblock %}
+{% block page_title %}{% if form.instance.pk %}Editar producto{% else %}Nuevo producto{% endif %}{% endblock %}
+
+{% block content %}
+
+<section class="panel panel--form">
+    <header class="panel__head">
+        <h2 class="panel__title">
+            {% if form.instance.pk %}{{ form.instance.name }}{% else %}Alta en {{ tenant.name }}{% endif %}
+        </h2>
+        <span class="panel__tag">{{ tenant.prefix }}</span>
+    </header>
+
+    {% comment %} Sin campo de lavandería: el tenant lo asigna la vista desde
+       la sesión, y el <select> de categoría ya viene acotado al tenant. {% endcomment %}
+    <form class="form form--page" method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert" role="alert">
+            <span class="alert__dot"></span>{{ form.non_field_errors.0 }}
+        </div>
+        {% endif %}
+
+        {% include 'partials/form_fields.html' %}
+
+        <div class="form__actions">
+            {# Cancelar: enlace simple de vuelta al listado, sin tocar nada #}
+            <a class="ghost" href="{% url 'product:list' %}">Cancelar</a>
+            <button class="btn btn--inline" type="submit">
+                <span class="btn__label">
+                    {% if form.instance.pk %}Guardar cambios{% else %}Guardar producto{% endif %}
+                </span>
+                <span class="btn__arrow" aria-hidden="true">&rarr;</span>
+            </button>
+        </div>
+    </form>
+</section>
+
+{% endblock %}

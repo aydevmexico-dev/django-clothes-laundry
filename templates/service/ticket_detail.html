@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ ticket.folio }} · Anda Lava POS{% endblock %}
+{% block page_eyebrow %}Módulo · Ventas{% endblock %}
+{% block page_title %}Recibo de venta{% endblock %}
+
+{% block page_actions %}
+    <button class="action" type="button" data-print>Imprimir recibo</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="receipt" aria-label="Recibo {{ ticket.folio }}">
+    <header class="receipt__head">
+        <p class="receipt__brand">Anda Lava · {{ tenant.name }}</p>
+        <p class="receipt__folio t-mono">{{ ticket.folio }}</p>
+        <p class="receipt__meta t-mono">
+            {{ ticket.created_at|date:'d M Y · H:i' }}
+            · {{ ticket.client.name|default:'Público general' }}
+        </p>
+        {% if ticket.delivery_date_time %}
+        <p class="receipt__meta t-mono">Entrega: {{ ticket.delivery_date_time|date:'d M Y · H:i' }}</p>
+        {% endif %}
+        <p class="receipt__status">
+            {% if ticket.paid %}<span class="tag tag--paid">Pagado</span>
+            {% elif ticket.is_overdue %}<span class="tag tag--overdue">Atrasado</span>
+            {% else %}<span class="tag tag--pending">Saldo pendiente</span>{% endif %}
+        </p>
+    </header>
+
+    <table class="receipt__table">
+        <thead>
+            <tr>
+                <th scope="col">Cant.</th>
+                <th scope="col">Concepto</th>
+                <th scope="col" class="t-right">P. unit.</th>
+                <th scope="col" class="t-right">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in ticket.details.all %}
+            <tr>
+                <td class="t-mono">{{ line.quantity }}</td>
+                <td>{{ line.product.name }}</td>
+                <td class="t-mono t-right">$ {{ line.unit_price|floatformat:2|intcomma }}</td>
+                <td class="t-mono t-right">$ {{ line.subtotal|floatformat:2|intcomma }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" class="receipt__total-label">Total</td>
+                <td class="t-mono t-right receipt__total">$ {{ ticket.total|floatformat:2|intcomma }}</td>
+            </tr>
+            {% if ticket.partial_payment %}
+            <tr class="receipt__aux">
+                <td colspan="3" class="receipt__total-label">Anticipo</td>
+                <td class="t-mono t-right">&minus; $ {{ ticket.partial_payment|floatformat:2|intcomma }}</td>
+            </tr>
+            <tr class="receipt__aux">
+                <td colspan="3" class="receipt__total-label">Saldo restante</td>
+                <td class="t-mono t-right receipt__due">$ {{ ticket.remaining_balance|floatformat:2|intcomma }}</td>
+            </tr>
+            {% endif %}
+        </tfoot>
+    </table>
+
+    <footer class="receipt__foot">
+        <p>El precio de cada concepto quedó congelado al momento de la venta.</p>
+        <p class="t-mono">— Gracias por su preferencia —</p>
+    </footer>
+</section>
+
+<div class="receipt-actions">
+    <a class="ghost" href="{% url 'service:ticket_list' %}">&larr; Volver al historial</a>
+    {% if not ticket.paid and perms.service.change_ticket %}
+    <form method="post" action="{% url 'service:ticket_settle' ticket.pk %}">
+        {% csrf_token %}
+        <button class="action" type="submit">
+            Liquidar saldo ($ {{ ticket.remaining_balance|floatformat:2|intcomma }})
+        </button>
+    </form>
+    {% endif %}
+    {% if perms.service.add_ticket %}
+    <a class="action" href="{% url 'service:ticket_create' %}">Nueva venta &rarr;</a>
+    {% endif %}
+</div>
+
+{% endblock %}

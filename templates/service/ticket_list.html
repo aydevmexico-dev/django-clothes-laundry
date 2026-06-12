@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Ventas · {{ tenant.name }} · Anda Lava POS{% endblock %}
+{% block page_eyebrow %}Módulo · Ventas{% endblock %}
+{% block page_title %}Historial de ventas{% endblock %}
+
+{% block page_actions %}
+    {% if perms.service.add_ticket %}
+    <a class="action" href="{% url 'service:ticket_create' %}">Nueva venta <span aria-hidden="true">&rarr;</span></a>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<section class="toolbar">
+    <form class="searchbar" method="get" role="search">
+        <input class="searchbar__input" type="search" name="q" value="{{ query }}"
+               placeholder="Folio o nombre del cliente…" aria-label="Buscar venta"
+               data-table-filter="#tabla-ventas">
+        <button class="searchbar__go" type="submit">Buscar</button>
+    </form>
+</section>
+
+<section class="panel panel--flush">
+    {% if tickets %}
+    <table class="table" id="tabla-ventas">
+        <thead>
+            <tr>
+                <th scope="col">Folio</th>
+                <th scope="col">Cliente</th>
+                <th scope="col" class="t-right">Total</th>
+                <th scope="col" class="t-right">Saldo</th>
+                <th scope="col" class="t-right">Entrega</th>
+                <th scope="col" class="t-right">Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ticket in tickets %}
+            <tr>
+                <td class="t-mono">
+                    <a class="table__link" href="{% url 'service:ticket_detail' ticket.pk %}">{{ ticket.folio }}</a>
+                </td>
+                <td>{{ ticket.client.name|default:'Público general' }}</td>
+                <td class="t-mono t-right">$ {{ ticket.total|floatformat:2|intcomma }}</td>
+                <td class="t-mono t-right">
+                    {% if ticket.paid %}&mdash;{% else %}$ {{ ticket.remaining_balance|floatformat:2|intcomma }}{% endif %}
+                </td>
+                <td class="t-mono t-right">
+                    {% if ticket.delivery_date_time %}{{ ticket.delivery_date_time|date:'d M · H:i' }}{% else %}&mdash;{% endif %}
+                </td>
+                <td class="t-right">
+                    {% if ticket.paid %}<span class="tag tag--paid">Pagado</span>
+                    {% elif ticket.is_overdue %}<span class="tag tag--overdue">Atrasado</span>
+                    {% else %}<span class="tag tag--pending">Pendiente</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="panel__empty">
+        {% if query %}Ningún folio o cliente coincide con «{{ query }}».
+        {% else %}Aún no hay ventas. La primera estrenará el folio <span class="t-mono">{{ tenant.prefix }}…001</span>.{% endif %}
+    </p>
+    {% endif %}
+</section>
+
+{% include 'partials/pagination.html' %}
+
+{% endblock %}

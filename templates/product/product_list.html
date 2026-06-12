@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Productos · {{ tenant.name }} · Anda Lava POS{% endblock %}
+{% block page_eyebrow %}Módulo · Catálogo{% endblock %}
+{% block page_title %}Productos{% endblock %}
+
+{% block page_actions %}
+    {% if perms.product.add_category %}
+    <a class="ghost" href="{% url 'product:category_create' %}">Nueva categoría</a>
+    {% endif %}
+    {% if perms.product.add_product %}
+    <a class="action" href="{% url 'product:create' %}">Nuevo producto <span aria-hidden="true">+</span></a>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<section class="toolbar">
+    {# Búsqueda en servidor (funciona sin JS); app.js además filtra en vivo #}
+    <form class="searchbar" method="get" role="search">
+        <input class="searchbar__input" type="search" name="q" value="{{ query }}"
+               placeholder="Buscar producto…" aria-label="Buscar producto"
+               data-table-filter="#tabla-productos">
+        {% if active_category %}<input type="hidden" name="categoria" value="{{ active_category }}">{% endif %}
+        <button class="searchbar__go" type="submit">Buscar</button>
+    </form>
+
+    <nav class="chips" aria-label="Filtrar por categoría">
+        <a class="chip {% if not active_category %}is-active{% endif %}"
+           href="{% url 'product:list' %}{% if query %}?q={{ query|urlencode }}{% endif %}">Todas</a>
+        {% for category in categories %}
+        <a class="chip {% if active_category == category.pk|stringformat:'s' %}is-active{% endif %}"
+           href="?categoria={{ category.pk }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}">
+            {{ category.name }}
+        </a>
+        {% endfor %}
+    </nav>
+
+    {% if active_category_obj and perms.product.change_category %}
+    <a class="ghost" href="{% url 'product:category_update' active_category_obj.pk %}">
+        Editar «{{ active_category_obj.name }}»
+    </a>
+    {% endif %}
+</section>
+
+<section class="panel panel--flush">
+    {% if products %}
+    <table class="table" id="tabla-productos">
+        <thead>
+            <tr>
+                <th scope="col">Producto</th>
+                <th scope="col">Categoría</th>
+                <th scope="col" class="t-right">Precio</th>
+                <th scope="col" class="t-right">Existencias</th>
+                {% if perms.product.change_product %}
+                <th scope="col" class="t-right"><span class="visually-hidden">Acciones</span></th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr>
+                <td>
+                    <span class="table__primary">{{ product.name }}</span>
+                    {% if product.description %}
+                    <span class="table__secondary">{{ product.description|truncatechars:80 }}</span>
+                    {% endif %}
+                </td>
+                <td><span class="badge">{{ product.category.name }}</span></td>
+                <td class="t-mono t-right">$ {{ product.price|floatformat:2|intcomma }}</td>
+                <td class="t-mono t-right">
+                    {% if product.inventory %}{{ product.inventory.quantity }}{% else %}&mdash;{% endif %}
+                </td>
+                {% if perms.product.change_product %}
+                <td class="t-right">
+                    <a class="table__link t-mono" href="{% url 'product:update' product.pk %}">Editar</a>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="panel__empty">
+        {% if query %}Sin resultados para «{{ query }}» en tu catálogo.
+        {% else %}El catálogo está vacío. El administrador puede crearlo desde Reportes avanzados.{% endif %}
+    </p>
+    {% endif %}
+</section>
+
+{% include 'partials/pagination.html' %}
+
+{% endblock %}

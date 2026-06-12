@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% load static humanize %}
+
+{% block title %}Panel · {{ tenant.name }} · Anda Lava POS{% endblock %}
+{% block page_eyebrow %}Módulo · Panel de control{% endblock %}
+{% block page_title %}{{ tenant.name }}{% endblock %}
+
+{% block page_actions %}
+    {% if perms.service.add_ticket %}
+    <a class="action" href="{% url 'service:ticket_create' %}">
+        Nueva venta <span aria-hidden="true">&rarr;</span>
+    </a>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ============== Barra de filtros analíticos combinables ================ #}
+{% comment %} GET puro: el formulario pinta la QueryString y el servidor
+   re-renderiza. "Eliminar filtros" es un <a> a la URL base SIN parámetros:
+   el panel vuelve a su estado global (histórico completo del tenant). {% endcomment %}
+<section class="panel filters" aria-label="Filtros del panel">
+    <form class="filters__form" method="get" data-filter-form>
+        <div class="filters__field">
+            <label class="field__label" for="filtro-periodo">Periodo</label>
+            <select class="filters__input" id="filtro-periodo" name="periodo" data-filter-period>
+                <option value="">Histórico completo</option>
+                <option value="semana" {% if filters.period == 'semana' %}selected{% endif %}>Esta semana</option>
+                <option value="mes" {% if filters.period == 'mes' %}selected{% endif %}>Este mes</option>
+            </select>
+        </div>
+
+        <div class="filters__field">
+            <label class="field__label" for="filtro-inicio">Desde</label>
+            <input class="filters__input" type="date" id="filtro-inicio" name="fecha_inicio"
+                   value="{{ filters.date_start_raw }}" data-filter-date>
+        </div>
+
+        <div class="filters__field">
+            <label class="field__label" for="filtro-fin">Hasta</label>
+            <input class="filters__input" type="date" id="filtro-fin" name="fecha_fin"
+                   value="{{ filters.date_end_raw }}" data-filter-date>
+        </div>
+
+        <div class="filters__field">
+            <label class="field__label" for="filtro-cliente">Cliente</label>
+            <select class="filters__input" id="filtro-cliente" name="cliente">
+                <option value="">Todos los clientes</option>
+                {% for option in filter_clients %}
+                <option value="{{ option.pk }}" {% if filters.client_id == option.pk %}selected{% endif %}>{{ option.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filters__actions">
+            <button class="action" type="submit">Filtrar</button>
+            {# Reset limpio: enlace a la URL base, CERO JavaScript #}
+            <a class="ghost" href="{% url 'panel:dashboard' %}">Eliminar filtros</a>
+        </div>
+    </form>
+
+    {% if filters.active %}
+    <p class="filters__status" role="status">
+        Mostrando
+        {% if filters.date_start_raw %}del <span class="t-mono">{{ filters.date_start_raw }}</span>{% endif %}
+        {% if filters.date_end_raw %}al <span class="t-mono">{{ filters.date_end_raw }}</span>{% endif %}
+        {% if filters.client %}· cliente <strong>{{ filters.client.name }}</strong>{% endif %}
+    </p>
+    {% endif %}
+</section>
+
+{# ====================== KPIs del periodo (tarjetas) ==================== #}
+<section class="kpis" aria-label="Indicadores">
+
+    <article class="kpi">
+        <p class="kpi__label">Ventas {% if filters.active %}del periodo{% else %}de hoy{% endif %}</p>
+        <p class="kpi__value">$&nbsp;{{ kpis.sales_today|floatformat:2|intcomma }}</p>
+        <p class="kpi__hint">{% if filters.active %}según filtros activos{% else %}corte natural{% endif %} · MXN</p>
+    </article>
+
+    <article class="kpi">
+        <p class="kpi__label">Tickets {% if filters.active %}del periodo{% else %}de hoy{% endif %}</p>
+        <p class="kpi__value">{{ kpis.tickets_today }}</p>
+        <p class="kpi__hint">folio consecutivo {{ tenant.prefix }}</p>
+    </article>
+
+    <article class="kpi">
+        <p class="kpi__label">Clientes nuevos</p>
+        <p class="kpi__value">{{ kpis.new_clients_week }}</p>
+        <p class="kpi__hint">{% if filters.date_start_raw or filters.date_end_raw %}en el rango filtrado{% else %}últimos 7 días{% endif %} · {{ kpis.clients_total }} en total</p>
+    </article>
+
+    <article class="kpi {% if kpis.low_stock %}kpi--alert{% endif %}">
+        <p class="kpi__label">Inventario</p>
+        <p class="kpi__value">{{ kpis.low_stock }}</p>
+        <p class="kpi__hint">
+            {% if kpis.low_stock %}insumos por agotarse{% else %}sin alertas de stock{% endif %}
+            · {{ kpis.inventory_items }} artículos
+        </p>
+    </article>
+
+    <article class="kpi">
+        <p class="kpi__label">Cuentas por cobrar</p>
+        <p class="kpi__value">$&nbsp;{{ kpis.receivable|floatformat:2|intcomma }}</p>
+        <p class="kpi__hint">{{ kpis.pending_count }} ticket{{ kpis.pending_count|pluralize }} con saldo vivo</p>
+    </article>
+
+    <article class="kpi {% if kpis.overdue_deliveries %}kpi--danger{% endif %}">
+        <p class="kpi__label">Entregas de hoy</p>
+        <p class="kpi__value">{{ kpis.deliveries_today }}</p>
+        <p class="kpi__hint">
+            {% if kpis.overdue_deliveries %}{{ kpis.overdue_deliveries }} entrega{{ kpis.overdue_deliveries|pluralize }} atrasada{{ kpis.overdue_deliveries|pluralize }}{% else %}sin entregas atrasadas{% endif %}
+        </p>
+    </article>
+
+    <article class="kpi">
+        <p class="kpi__label">Ingresos cobrados</p>
+        <p class="kpi__value">{% if kpis.collected_pct is not None %}{{ kpis.collected_pct }}&nbsp;%{% else %}&mdash;{% endif %}</p>
+        <p class="kpi__hint">$ {{ kpis.collected|floatformat:2|intcomma }} en caja</p>
+    </article>
+</section>
+
+{# ========================= Gráficas de negocio ========================== #}
+{% comment %} Los datos viajan como JSON seguro (json_script); app.js los toma
+   de aquí y monta Chart.js sobre los canvas data-chart. Sin JS incrustado. {% endcomment %}
+{{ chart_payload|json_script:'dashboard-data' }}
+
+<section class="grid grid--charts" aria-label="Gráficas de rendimiento">
+    <article class="panel">
+        <header class="panel__head">
+            <h2 class="panel__title">Ventas</h2>
+            <span class="panel__tag">{{ sales_series_label }}</span>
+        </header>
+        <div class="panel__chart">
+            <canvas data-chart="sales-week" role="img"
+                    aria-label="Gráfica de barras con las ventas diarias de la última semana"></canvas>
+        </div>
+    </article>
+
+    <article class="panel">
+        <header class="panel__head">
+            <h2 class="panel__title">Categorías más solicitadas</h2>
+            <span class="panel__tag">{{ categories_label }}</span>
+        </header>
+        <div class="panel__chart">
+            <canvas data-chart="top-categories" role="img"
+                    aria-label="Gráfica con las categorías de productos más vendidas del mes"></canvas>
+        </div>
+    </article>
+
+    <article class="panel">
+        <header class="panel__head">
+            <h2 class="panel__title">Cobrado vs por cobrar</h2>
+            <span class="panel__tag">{{ income_label }}</span>
+        </header>
+        <div class="panel__chart">
+            <canvas data-chart="income-status" role="img"
+                    aria-label="Gráfica de dona con la proporción de ingresos cobrados contra saldos pendientes"></canvas>
+        </div>
+    </article>
+</section>
+
+{# ==================== Últimos movimientos del tenant ==================== #}
+<section class="grid grid--detail" aria-label="Últimos movimientos">
+
+    <article class="panel">
+        <header class="panel__head">
+            <h2 class="panel__title">Últimos tickets</h2>
+            {% if perms.service.view_ticket %}
+            <a class="panel__more" href="{% url 'service:ticket_list' %}">Ver todos &rarr;</a>
+            {% endif %}
+        </header>
+
+        {% if latest_tickets %}
+        <table class="table">
+            <thead>
+                <tr><th scope="col">Folio</th><th scope="col">Cliente</th>
+                    <th scope="col" class="t-right">Total</th>
+                    <th scope="col" class="t-right">Estado</th></tr>
+            </thead>
+            <tbody>
+                {% for ticket in latest_tickets %}
+                <tr>
+                    <td class="t-mono">
+                        {% if perms.service.view_ticket %}
+                        <a class="table__link" href="{% url 'service:ticket_detail' ticket.pk %}">{{ ticket.folio }}</a>
+                        {% else %}{{ ticket.folio }}{% endif %}
+                    </td>
+                    <td>{{ ticket.client.name|default:'Público general' }}</td>
+                    <td class="t-mono t-right">$ {{ ticket.total|floatformat:2|intcomma }}</td>
+                    <td class="t-right">
+                        {% if ticket.paid %}<span class="tag tag--paid">Pagado</span>
+                        {% elif ticket.is_overdue %}<span class="tag tag--overdue">Atrasado</span>
+                        {% else %}<span class="tag tag--pending">Pendiente</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="panel__empty">Aún no hay ventas registradas. La primera estrenará el folio
+            <span class="t-mono">{{ tenant.prefix }}…001</span>.</p>
+        {% endif %}
+    </article>
+
+    <article class="panel">
+        <header class="panel__head">
+            <h2 class="panel__title">Stock crítico</h2>
+            <span class="panel__tag">&le; {{ low_stock_threshold }} pzas</span>
+        </header>
+
+        {% if low_stock_items %}
+        <ul class="stock">
+            {% for item in low_stock_items %}
+            <li class="stock__row">
+                <span class="stock__name">{{ item.product.name }}</span>
+                <span class="stock__qty {% if item.quantity == 0 %}stock__qty--out{% endif %}">
+                    {{ item.quantity }} pza{{ item.quantity|pluralize }}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="panel__empty">Todo el inventario está por encima del mínimo.</p>
+        {% endif %}
+    </article>
+</section>
+
+{% endblock %}
+
+{% block vendor_js %}
+{# Chart.js servido desde estáticos propios: carga local, sin CDN en runtime #}
+<script src="{% static 'js/vendor/chart.umd.min.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% load static %}
+{% comment %}
+   Barra lateral · rail técnico de navegación
+   - La pestaña activa se marca en el SERVIDOR comparando el view_name de la
+     URL resuelta (aria-current="page"); el CSS hace el resto. Sin JS.
+   - Cada módulo se muestra SOLO si el usuario tiene el permiso real del
+     backend (etiquetas perms): el menú nunca promete lo que la vista negará.
+{% endcomment %}
+{% with view_name=request.resolver_match.view_name %}
+<aside class="sidebar" id="sidebar" aria-label="Navegación principal">
+
+    <div class="sidebar__brand">
+        <img class="sidebar__logo" src="{% static 'img/andalava_logo.png' %}" alt="">
+        <div>
+            <span class="sidebar__name">Anda Lava</span>
+            <span class="sidebar__sub">Punto de venta</span>
+        </div>
+    </div>
+
+    <nav class="nav">
+        <p class="nav__group">Operación</p>
+
+        <a class="nav__link" href="{% url 'panel:dashboard' %}"
+           {% if view_name == 'panel:dashboard' %}aria-current="page"{% endif %}>
+            <span class="nav__index" aria-hidden="true">01</span>Panel
+        </a>
+
+        {% if perms.service.add_ticket %}
+        <a class="nav__link" href="{% url 'service:ticket_create' %}"
+           {% if view_name == 'service:ticket_create' %}aria-current="page"{% endif %}>
+            <span class="nav__index" aria-hidden="true">02</span>Nueva venta
+        </a>
+        {% endif %}
+
+        {% if perms.service.view_ticket %}
+        <a class="nav__link" href="{% url 'service:ticket_list' %}"
+           {% if view_name == 'service:ticket_list' or view_name == 'service:ticket_detail' %}aria-current="page"{% endif %}>
+            <span class="nav__index" aria-hidden="true">03</span>Ventas
+        </a>
+        {% endif %}
+
+        {% if perms.client.view_client or perms.product.view_product %}
+        <p class="nav__group">Gestión</p>
+        {% endif %}
+
+        {% if perms.client.view_client %}
+        <a class="nav__link" href="{% url 'client:list' %}"
+           {% if view_name == 'client:list' or view_name == 'client:create' %}aria-current="page"{% endif %}>
+            <span class="nav__index" aria-hidden="true">04</span>Clientes
+        </a>
+        {% endif %}
+
+        {% if perms.product.view_product %}
+        <a class="nav__link" href="{% url 'product:list' %}"
+           {% if view_name == 'product:list' %}aria-current="page"{% endif %}>
+            <span class="nav__index" aria-hidden="true">05</span>Productos
+        </a>
+        {% endif %}
+
+        {% comment %} {% if is_tenant_admin %}
+        <p class="nav__group">Administración</p>
+        <a class="nav__link" href="{% url 'admin:index' %}">
+            <span class="nav__index" aria-hidden="true">06</span>Reportes avanzados
+        </a>
+        {% endif %} {% endcomment %}
+    </nav>
+
+    {# -------- Identidad: quién está conectado y en qué lavandería -------- #}
+    <div class="sidebar__tenant">
+        <span class="sidebar__prefix" aria-hidden="true">{{ tenant.prefix }}</span>
+        <div class="sidebar__who">
+            <span class="sidebar__laundry">{{ tenant.name }}</span>
+            <span class="sidebar__user">
+                {{ user.get_full_name|default:user.username }}
+                · {% if is_tenant_admin %}Administración{% else %}Caja{% endif %}
+            </span>
+        </div>
+    </div>
+
+    <form class="sidebar__logout" action="{% url 'logout' %}" method="post">
+        {% csrf_token %}
+        <button class="logout" type="submit">
+            Cerrar sesión <span aria-hidden="true">&rarr;</span>
+        </button>
+    </form>
+</aside>
+{% endwith %}

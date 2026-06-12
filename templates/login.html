@@ -1,0 +1,97 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso · Anda Lava POS</title>
+
+    <!-- Tipografías: Archivo (industrial) + JetBrains Mono (detalles técnicos) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Hoja de estilos externa -->
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body class="login-page">
+    <main class="split">
+
+        <!-- ===================== IZQUIERDA · Marca ===================== -->
+        <section class="split__brand">
+            <span class="tick tick--tl" aria-hidden="true"></span>
+            <span class="tick tick--br" aria-hidden="true"></span>
+            <span class="brand__rail" aria-hidden="true">Autenticación segura</span>
+
+            <div class="brand">
+                <img class="brand__logo" src="{% static 'img/andalava_logo.png' %}" alt="Anda Lava">
+                <p class="brand__tag">Punto de Venta</p>
+            </div>
+
+            <p class="brand__meta">Sistema POS · v1.0 — Lavanderías</p>
+        </section>
+
+        <!-- ================ DERECHA · Terminal de acceso ============== -->
+        <section class="split__access">
+            <div class="access">
+                <header class="access__head">
+                    <p class="eyebrow">Acceso al sistema</p>
+                    <h1 class="access__title">Iniciar sesión</h1>
+                </header>
+
+                <form class="form" id="login-form" action="" method="POST" novalidate>
+                    {% csrf_token %}
+                    {# Conserva el destino protegido (?next=) si el usuario venía de una URL protegida #}
+                    <input type="hidden" name="next" value="{{ next }}">
+
+                    {% if throttle_message %}
+                    <div class="alert" role="alert">
+                        <span class="alert__dot"></span>
+                        {{ throttle_message }}
+                    </div>
+                    {% elif form.errors %}
+                    <div class="alert" role="alert">
+                        <span class="alert__dot"></span>
+                        Usuario o contraseña incorrectos. Inténtalo de nuevo.
+                    </div>
+                    {% endif %}
+
+                    <div class="field field--user">
+                        <label class="field__label" for="username">Usuario</label>
+                        <div class="field__control">
+                            <input class="field__input" type="text" id="username" name="username"
+                                   value="{{ form.username.value|default:'' }}"
+                                   placeholder="ej. juan.perez" required autocomplete="username">
+                        </div>
+                    </div>
+
+                    <div class="field field--pass">
+                        <label class="field__label" for="password">Contraseña</label>
+                        <div class="field__control">
+                            <input class="field__input" type="password" id="password" name="password"
+                                   placeholder="••••••••" required autocomplete="current-password">
+                            <button class="field__toggle" type="button"
+                                    data-toggle-password aria-pressed="false"
+                                    aria-label="Mostrar u ocultar contraseña">Ver</button>
+                        </div>
+                    </div>
+
+                    <button class="btn" type="submit">
+                        <span class="btn__label">Ingresar</span>
+                        <span class="btn__arrow" aria-hidden="true">&rarr;</span>
+                    </button>
+
+                    <footer class="access__foot">
+                        <span class="status"><span class="status__dot"></span> Sistema en línea</span>
+                        <a class="form__link" href="#">¿Olvidaste tu contraseña?</a>
+                    </footer>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Lógica de la pantalla (externa) -->
+    <script src="{% static 'js/app.js' %}" defer></script>
+</body>
+</html>

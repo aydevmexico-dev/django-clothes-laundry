@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Clientes · {{ tenant.name }} · Anda Lava POS{% endblock %}
+{% block page_eyebrow %}Módulo · Directorio{% endblock %}
+{% block page_title %}Clientes{% endblock %}
+
+{% block page_actions %}
+    {% if perms.client.add_client %}
+    <a class="action" href="{% url 'client:create' %}">Nuevo cliente <span aria-hidden="true">+</span></a>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<section class="toolbar">
+    <form class="searchbar" method="get" role="search">
+        <input class="searchbar__input" type="search" name="q" value="{{ query }}"
+               placeholder="Nombre, teléfono, RFC o correo…" aria-label="Buscar cliente"
+               data-table-filter="#tabla-clientes">
+        <button class="searchbar__go" type="submit">Buscar</button>
+    </form>
+</section>
+
+<section class="panel panel--flush">
+    {% if clients %}
+    <table class="table" id="tabla-clientes">
+        <thead>
+            <tr>
+                <th scope="col">Cliente</th>
+                <th scope="col">Teléfono</th>
+                <th scope="col">Correo</th>
+                <th scope="col">RFC</th>
+                <th scope="col" class="t-right">Alta</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for client in clients %}
+            <tr>
+                <td><span class="table__primary">{{ client.name }}</span></td>
+                <td class="t-mono">{{ client.phone_number|default:'—' }}</td>
+                <td>{{ client.email|default:'—' }}</td>
+                <td class="t-mono">{{ client.rfc|default:'—' }}</td>
+                <td class="t-mono t-right">{{ client.created_at|date:'d M Y' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="panel__empty">
+        {% if query %}Sin coincidencias para «{{ query }}» en tu directorio.
+        {% else %}Aún no hay clientes registrados en {{ tenant.name }}.{% endif %}
+    </p>
+    {% endif %}
+</section>
+
+{% include 'partials/pagination.html' %}
+
+{% endblock %}

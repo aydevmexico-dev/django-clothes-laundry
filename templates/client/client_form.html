@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Nuevo cliente · {{ tenant.name }} · Anda Lava POS{% endblock %}
+{% block page_eyebrow %}Módulo · Directorio{% endblock %}
+{% block page_title %}Nuevo cliente{% endblock %}
+
+{% block content %}
+
+<section class="panel panel--form">
+    <header class="panel__head">
+        <h2 class="panel__title">Alta en {{ tenant.name }}</h2>
+        <span class="panel__tag">{{ tenant.prefix }}</span>
+    </header>
+
+    {% comment %} El formulario NO tiene campo de lavandería: el tenant lo pone
+       la vista desde la sesión. Manipular el POST no cruza tenants. {% endcomment %}
+    <form class="form form--page" method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert" role="alert">
+            <span class="alert__dot"></span>{{ form.non_field_errors.0 }}
+        </div>
+        {% endif %}
+
+        {% for field in form %}
+        <div class="field {% if field.errors %}field--error{% endif %}">
+            <label class="field__label" for="{{ field.id_for_label }}">
+                {{ field.label }}{% if field.field.required %} *{% endif %}
+            </label>
+            <div class="field__control">{{ field }}</div>
+            {% if field.errors %}<p class="field__msg">{{ field.errors.0 }}</p>{% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="form__actions">
+            <a class="ghost" href="{% url 'client:list' %}">Cancelar</a>
+            <button class="btn btn--inline" type="submit">
+                <span class="btn__label">Guardar cliente</span>
+                <span class="btn__arrow" aria-hidden="true">&rarr;</span>
+            </button>
+        </div>
+    </form>
+</section>
+
+{% endblock %}

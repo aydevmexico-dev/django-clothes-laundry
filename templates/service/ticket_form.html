@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Nueva venta · {{ tenant.name }} · Anda Lava POS{% endblock %}
+{% block page_eyebrow %}Módulo · Punto de venta{% endblock %}
+{% block page_title %}Nueva venta{% endblock %}
+
+{% block content %}
+
+{% comment %}
+   POS · un solo form: catálogo clicable a la izquierda, ticket en curso a
+   la derecha. app.js mantiene las líneas como inputs OCULTOS del inline
+   formset de Django (details-N-product / details-N-quantity): el envío es un
+   POST clásico que el backend re-valida contra el tenant de la sesión.
+   El precio NUNCA viaja en el formulario: lo congela el servidor.
+{% endcomment %}
+<form class="pos" id="pos-form" method="post" novalidate>
+    {% csrf_token %}
+
+    {# ------------------ Catálogo del tenant (izquierda) ----------------- #}
+    <section class="pos__catalog" aria-label="Catálogo de productos">
+        <div class="pos__tools">
+            <input class="searchbar__input" type="search" placeholder="Buscar producto…"
+                   aria-label="Buscar producto en el catálogo" data-pos-search>
+            <div class="chips" data-pos-categories>
+                <button class="chip is-active" type="button" data-category="all">Todas</button>
+                {% for category in categories %}
+                <button class="chip" type="button" data-category="{{ category.pk }}">{{ category.name }}</button>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if catalog %}
+        <div class="pos-grid" data-pos-grid>
+            {% for product in catalog %}
+            <button class="pos-card" type="button"
+                    data-product="{{ product.pk }}"
+                    data-category="{{ product.category_id }}"
+                    data-name="{{ product.name }}"
+                    data-price="{{ product.price }}">
+                <span class="pos-card__cat">{{ product.category.name }}</span>
+                <span class="pos-card__name">{{ product.name }}</span>
+                <span class="pos-card__price">$ {{ product.price|floatformat:2|intcomma }}</span>
+            </button>
+            {% endfor %}
+        </div>
+        <p class="panel__empty" data-pos-noresults hidden>Ningún producto coincide con la búsqueda.</p>
+        {% else %}
+        <p class="panel__empty">El catálogo está vacío: pide al administrador darlo de alta.</p>
+        {% endif %}
+    </section>
+
+    {# ------------------- Ticket en curso (derecha) ---------------------- #}
+    <aside class="pos__ticket" aria-label="Ticket en curso">
+        <header class="pos__head">
+            <p class="pos__eyebrow">Ticket en curso</p>
+            <p class="pos__folio t-mono">{{ tenant.prefix }} · folio al cobrar</p>
+        </header>
+
+        <div class="field">
+            <label class="field__label" for="{{ form.client.id_for_label }}">Cliente</label>
+            <div class="field__control">{{ form.client }}</div>
+            {% if form.client.errors %}<p class="field__msg">{{ form.client.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div class="pos__meta">
+            <div class="field">
+                <label class="field__label" for="{{ form.delivery_date_time.id_for_label }}">Entrega estimada</label>
+                <div class="field__control">{{ form.delivery_date_time }}</div>
+                {% if form.delivery_date_time.errors %}<p class="field__msg">{{ form.delivery_date_time.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="field">
+                <label class="field__label" for="{{ form.partial_payment.id_for_label }}">Anticipo</label>
+                <div class="field__control">{{ form.partial_payment }}</div>
+                {% if form.partial_payment.errors %}<p class="field__msg">{{ form.partial_payment.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+
+        {# Errores de validación del servidor (formset y formulario) #}
+        {% if form.non_field_errors or detail_formset.non_form_errors %}
+        <div class="alert" role="alert">
+            <span class="alert__dot"></span>
+            {{ form.non_field_errors.0|default:detail_formset.non_form_errors.0 }}
+        </div>
+        {% endif %}
+        {% for line_form in detail_formset %}
+            {% for error_list in line_form.errors.values %}
+            <div class="alert" role="alert"><span class="alert__dot"></span>{{ error_list.0 }}</div>
+            {% endfor %}
+        {% endfor %}
+
+        {% comment %} Formset real de Django: management form + inputs ocultos
+           que app.js reescribe con cada cambio. Si el servidor rechaza el POST,
+           estos mismos inputs rehidratan el ticket sin perder la captura. {% endcomment %}
+        {{ detail_formset.management_form }}
+        <div data-pos-inputs hidden>
+            {% for line_form in detail_formset %}
+                {{ line_form.product.as_hidden }}{{ line_form.quantity.as_hidden }}
+            {% endfor %}
+        </div>
+
+        <ul class="pos-lines" data-pos-lines aria-live="polite"></ul>
+        <p class="pos__empty" data-pos-empty>Toca un producto del catálogo para agregarlo.</p>
+
+        <footer class="pos__foot">
+            <div class="pos__total">
+                <span class="pos__total-label">Total</span>
+                <output class="pos__total-value t-mono" data-pos-total for="pos-form">$ 0.00</output>
+            </div>
+            {# Saldo en vivo: lo actualiza app.js al teclear el anticipo #}
+            <div class="pos__due" data-pos-due-row hidden>
+                <span class="pos__due-label">Saldo restante</span>
+                <output class="pos__due-value t-mono" data-pos-due for="pos-form">$ 0.00</output>
+            </div>
+            <button class="btn btn--pos" type="submit" data-pos-submit disabled>
+                <span class="btn__label">Cobrar y generar folio</span>
+                <span class="btn__arrow" aria-hidden="true">&rarr;</span>
+            </button>
+        </footer>
+    </aside>
+</form>
+
+{% endblock %}
